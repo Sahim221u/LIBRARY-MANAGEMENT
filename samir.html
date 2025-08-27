@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Library Management (Single‑File, No Backend)</title>
+  <style>
+    :root{
+      --bg:#4d649a;        /* slate-900 */
+      --panel:#111827;     /* gray-900 */
+      --muted:#1f2937;     /* gray-800 */
+      --card:#0b1220;      /* custom */
+      --text:#e5e7eb;      /* gray-200 */
+      --sub:#a1a1aa;       /* zinc-400 */
+      --brand:#22c55e;     /* green-500 */
+      --accent:#60a5fa;    /* blue-400 */
+      --danger:#ef4444;    /* red-500 */
+      --warn:#f59e0b;      /* amber-500 */
+      --ok:#10b981;        /* emerald-500 */
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#0b1020, #0f172a 40%, #0f172a);color:var(--text)}
+    a{color:var(--accent)}
+    .container{max-width:1100px;margin:auto;padding:24px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .brand .logo{width:40px;height:40px;border-radius:12px;background:radial-gradient(circle at 30% 30%, #34d399, #2563eb 70%);box-shadow:0 0 30px #2563eb33}
+    .brand h1{font-size:1.2rem;margin:0}
+    .chip{font-size:.75rem;background:#111827;border:1px solid #1f2937;padding:4px 8px;border-radius:999px;color:#a1a1aa}
+
+    .panel{background:linear-gradient(180deg,#0b1220,#0d1425);border:1px solid #1e293b;border-radius:var(--radius);box-shadow:0 10px 30px #0006}
+    .panel.pad{padding:16px}
+
+    nav.tabs{display:flex;gap:8px;flex-wrap:wrap}
+    nav.tabs button{background:#0b1020;border:1px solid #1f2937;color:#cbd5e1;border-radius:12px;padding:10px 14px;cursor:pointer}
+    nav.tabs button.active{border-color:#2563eb;color:#fff;box-shadow:0 0 0 2px #2563eb33 inset}
+
+    .grid{display:grid;gap:16px}
+    @media(min-width:900px){
+      .grid.cols-3{grid-template-columns:repeat(3,1fr)}
+      .grid.cols-2{grid-template-columns:repeat(2,1fr)}
+    }
+
+    .card{background:#0b1020;border:1px solid #1f2937;border-radius:14px;padding:16px}
+    .card h3{margin:0 0 8px 0}
+
+    input,select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #1f2937;background:#5f6881;color:#e5e7eb}
+    label{font-size:.9rem;color:#cbd5e1;margin-bottom:6px;display:block}
+    .row{display:grid;gap:12px}
+    @media(min-width:650px){.row.cols-2{grid-template-columns:1fr 1fr}}
+
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid #1f2937;background:#0b1020;color:#e5e7eb;cursor:pointer}
+    .btn:hover{border-color:#384152}
+    .btn.primary{background:#1d4ed8;border-color:#1d4ed8}
+    .btn.success{background:#059669;border-color:#059669}
+    .btn.warn{background:#b45309;border-color:#b45309}
+    .btn.danger{background:#b91c1c;border-color:#b91c1c}
+    .btn.soft{background:#0b1020}
+
+    table{width:100%;border-collapse:separate;border-spacing:0 10px}
+    th,td{text-align:left;padding:10px 12px}
+    thead th{font-size:.85rem;color:#a1a1aa}
+    tbody tr{background:#0b1020;border:1px solid #1f2937}
+    tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
+    tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
+
+    .right{margin-left:auto}
+    .muted{color:#9ca3af}
+    .success{color:#34d399}
+    .danger-text{color:#f87171}
+    .nowrap{white-space:nowrap}
+    .hidden{display:none}
+    .center{text-align:center}
+    footer{margin-top:24px;color:#94a3b8;font-size:.85rem}
+
+    .auth-splash{display:flex;align-items:center;justify-content:center;min-height:70vh}
+    .auth-card{max-width:460px;width:100%}
+
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;background:#0b1020;border:1px solid #1f2937;color:#a1a1aa;font-size:.8rem}
+    .pill{padding:4px 10px;border-radius:999px;background:#062521;color:#34d399;border:1px solid #0b3a32}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Library Management</h1>
+          <div class="chip">Single‑file • LocalStorage • Offline</div>
+        </div>
+      </div>
+      <div id="userBox" class="chip">Not logged in</div>
+    </header>
+
+    <!-- TOP CONTROLS -->
+    <div class="panel pad" id="appBar">
+      <nav class="tabs">
+        <button data-tab="dashboard" class="active">Dashboard</button>
+        <button data-tab="books">Books</button>
+        <button data-tab="borrowed">Borrowed</button>
+        <button data-tab="admin">Admin</button>
+        <span class="right"></span>
+        <button id="btnExport" class="btn soft">Export Data</button>
+        <label class="btn soft" for="importFile">Import Data</label>
+        <input id="importFile" type="file" accept="application/json" class="hidden" />
+        <button id="btnReset" class="btn danger">Factory Reset</button>
+        <button id="btnAuth" class="btn primary">Login / Register</button>
+        <button id="btnLogout" class="btn warn hidden">Logout</button>
+      </nav>
+    </div>
+
+    <!-- TABS CONTENT -->
+    <section id="tab-dashboard" class="panel pad">
+      <div class="grid cols-3">
+        <div class="card">
+          <h3>Total Books</h3>
+          <div class="stat" id="statBooks" style="font-size:2rem">0</div>
+          <div class="muted">Available for issue</div>
+        </div>
+        <div class="card">
+          <h3>Borrowed Now</h3>
+          <div class="stat" id="statBorrowed" style="font-size:2rem">0</div>
+          <div class="muted">All users</div>
+        </div>
+        <div class="card">
+          <h3>Your Active</h3>
+          <div class="stat" id="statMyActive" style="font-size:2rem">0</div>
+          <div class="muted">Signed‑in user</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Quick Search</h3>
+        <input id="quickSearch" placeholder="Search by title, author, category, ISBN…" />
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Results</h3>
+        <div class="muted">Tip: Click Borrow to issue a book. You must be logged in.</div>
+        <div id="searchResults"></div>
+      </div>
+    </section>
+
+    <section id="tab-books" class="panel pad hidden">
+      <div class="row cols-2">
+        <div class="card">
+          <h3>Add / Edit Book</h3>
+          <form id="bookForm" autocomplete="off">
+            <input type="hidden" id="bookId" />
+            <label>Title<input id="title" required /></label>
+            <label>Author<input id="author" required /></label>
+            <label>Category<input id="category" placeholder="e.g. Programming, Fiction" /></label>
+            <label>ISBN<input id="isbn" placeholder="Optional" /></label>
+            <label>Total Copies<input id="copies" type="number" min="1" value="1" required /></label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button class="btn success" type="submit">Save Book</button>
+              <button class="btn" type="reset" id="resetBookForm">Clear</button>
+            </div>
+          </form>
+          <div class="muted" style="margin-top:10px">Only Admin can add/edit/delete. Default admin is <span class="pill">admin@lib.local / 1234</span></div>
+        </div>
+        <div class="card">
+          <h3>All Books</h3>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <input id="bookFilter" placeholder="Filter books…" />
+            <select id="sortBooks">
+              <option value="title">Sort by Title</option>
+              <option value="author">Sort by Author</option>
+              <option value="category">Sort by Category</option>
+              <option value="available">Sort by Availability</option>
+            </select>
+          </div>
+          <div id="bookTable"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-borrowed" class="panel pad hidden">
+      <div class="card">
+        <h3>Borrowed Items</h3>
+        <div class="muted">Issue period: 14 days • Overdue shows in red</div>
+        <div id="borrowTable" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <section id="tab-admin" class="panel pad hidden">
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Users</h3>
+          <div id="userTable"></div>
+        </div>
+        <div class="card">
+          <h3>Utilities</h3>
+          <p class="muted">Export/Import is on top‑right. Factory reset clears everything and reloads sample data.</p>
+          <button class="btn danger" id="btnWipe">Clear All Data (Empty)</button>
+          <button class="btn warn" id="btnSeed" style="margin-left:8px">Load Sample Data</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- AUTH DIALOG -->
+    <div id="authModal" class="auth-splash hidden">
+      <div class="auth-card card">
+        <h3 style="margin-top:0">Login / Register</h3>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn primary" id="tabLoginBtn">Login</button>
+          <button class="btn" id="tabRegBtn">Register</button>
+        </div>
+        <div id="loginPane">
+          <label>Email<input id="loginEmail" placeholder="you@example.com" /></label>
+          <label>Password<input id="loginPass" type="password" /></label>
+          <button class="btn success" id="doLogin" style="margin-top:10px">Login</button>
+        </div>
+        <div id="regPane" class="hidden">
+          <label>Name<input id="regName" placeholder="Your Name" /></label>
+          <label>Email<input id="regEmail" placeholder="you@example.com" /></label>
+          <label>Password<input id="regPass" type="password" /></label>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <input id="regIsAdmin" type="checkbox" /> <span class="muted">Make Admin</span>
+          </div>
+          <button class="btn success" id="doRegister" style="margin-top:10px">Create Account</button>
+        </div>
+        <div id="authMsg" class="muted" style="margin-top:12px"></div>
+        <div style="margin-top:12px"><button class="btn" id="closeAuth">Close</button></div>
+      </div>
+    </div>
+
+    <footer class="center muted">Made for you ❤ — Single file. Works offline. Data stays in your browser.</footer>
+  </div>
+
+  <script>
+    /*********************************
+     * Simple LocalStorage DB
+     *********************************/
+    const DB_KEY = 'libmgr_v1';
+    const now = () => new Date().toISOString();
+
+    const defaultData = () => ({
+      users:[
+        {id:1,name:'Admin',email:'admin@lib.local',pass:'1234',role:'admin',created:now()},
+        {id:2,name:'Guest',email:'guest@lib.local',pass:'1234',role:'user',created:now()},
+      ],
+      books:[
+        {id:1,title:'C Programming Language',author:'Kernighan & Ritchie',category:'Programming',isbn:'9780131103627',copies:3,created:now()},
+        {id:2,title:'Introduction to Algorithms',author:'Cormen et al.',category:'Programming',isbn:'9780262046305',copies:2,created:now()},
+        {id:3,title:'The Alchemist',author:'Paulo Coelho',category:'Fiction',isbn:'9780062315007',copies:4,created:now()},
+        {id:4,title:'Clean Code',author:'Robert C. Martin',category:'Programming',isbn:'9780132350884',copies:2,created:now()},
+      ],
+      loans:[
+        // {id,bookId,userId,issuedAt,dueAt,returnedAt}
+      ],
+      session:{userId:null}
+    });
+
+    function loadDB(){
+      const raw = localStorage.getItem(DB_KEY);
+      if(!raw){
+        const sample = defaultData();
+        localStorage.setItem(DB_KEY, JSON.stringify(sample));
+        return sample;
+      }
+      try{ return JSON.parse(raw);}catch(e){
+        alert('DB corrupted, resetting.');
+        localStorage.removeItem(DB_KEY);
+        return defaultData();
+      }
+    }
+    function saveDB(db){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+
+    let db = loadDB();
+
+    /*********************************
+     * Helpers
+     *********************************/
+    const $ = (sel)=>document.querySelector(sel);
+    const $$ = (sel)=>Array.from(document.querySelectorAll(sel));
+
+    function uid(list){ return (list.reduce((m,x)=>Math.max(m,x.id||0),0))+1 }
+    function isLogged(){ return !!db.session.userId }
+    function currentUser(){ return db.users.find(u=>u.id===db.session.userId)||null }
+    function isAdmin(){ return currentUser()?.role==='admin' }
+
+    function formatDate(iso){ const d=new Date(iso); return d.toLocaleString(); }
+    function daysFromNow(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString(); }
+
+    function toast(msg,cls=''){
+      const t=document.createElement('div');
+      t.textContent=msg; t.className='chip';
+      t.style.position='fixed'; t.style.bottom='20px'; t.style.right='20px';
+      t.style.background='#0b1020'; t.style.border='1px solid #2563eb';
+      t.style.padding='10px 14px'; t.style.zIndex=1000; t.style.color='#cbd5e1';
+      if(cls==='error'){t.style.borderColor='#ef4444'}
+      document.body.appendChild(t); setTimeout(()=>t.remove(),2200);
+    }
+
+    /*********************************
+     * Auth UI
+     *********************************/
+    function refreshUserBox(){
+      const u=currentUser();
+      if(u){
+        $('#userBox').innerHTML = `${u.name} <span class="tag">${u.role}</span>`;
+        $('#btnAuth').classList.add('hidden');
+        $('#btnLogout').classList.remove('hidden');
+      } else {
+        $('#userBox').textContent='Not logged in';
+        $('#btnAuth').classList.remove('hidden');
+        $('#btnLogout').classList.add('hidden');
+      }
+    }
+
+    function openAuth(){ $('#authModal').classList.remove('hidden'); $('#authMsg').textContent='Demo: admin@lib.local / 1234'; }
+    function closeAuth(){ $('#authModal').classList.add('hidden'); }
+
+    $('#btnAuth').onclick=openAuth; $('#closeAuth').onclick=closeAuth;
+    $('#btnLogout').onclick=()=>{ db.session.userId=null; saveDB(db); refreshUserBox(); renderAll(); toast('Logged out'); };
+
+    $('#tabLoginBtn').onclick=()=>{ $('#loginPane').classList.remove('hidden'); $('#regPane').classList.add('hidden') };
+    $('#tabRegBtn').onclick=()=>{ $('#regPane').classList.remove('hidden'); $('#loginPane').classList.add('hidden') };
+
+    $('#doLogin').onclick=()=>{
+      const email=$('#loginEmail').value.trim().toLowerCase();
+      const pass=$('#loginPass').value;
+      const u=db.users.find(x=>x.email.toLowerCase()===email && x.pass===pass);
+      if(u){ db.session.userId=u.id; saveDB(db); refreshUserBox(); closeAuth(); renderAll(); toast('Welcome '+u.name); }
+      else $('#authMsg').innerHTML = '<span class="danger-text">Invalid credentials</span>';
+    };
+
+    $('#doRegister').onclick=()=>{
+      const name=$('#regName').value.trim();
+      const email=$('#regEmail').value.trim().toLowerCase();
+      const pass=$('#regPass').value;
+      const role=$('#regIsAdmin').checked?'admin':'user';
+      if(!name||!email||!pass){ $('#authMsg').textContent='All fields required'; return }
+      if(db.users.some(u=>u.email.toLowerCase()===email)){ $('#authMsg').innerHTML='<span class="danger-text">Email already exists</span>'; return }
+      const u={id:uid(db.users),name,email,pass,role,created:now()};
+      db.users.push(u); db.session.userId=u.id; saveDB(db); refreshUserBox(); closeAuth(); renderAll(); toast('Account created');
+    };
+
+    /*********************************
+     * Tabs
+     *********************************/
+    $$('.tabs button[data-tab]').forEach(btn=>{
+      btn.onclick=()=>{
+        $$('.tabs button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const id=btn.dataset.tab;
+        ['dashboard','books','borrowed','admin'].forEach(t=>{
+          const el=$('#tab-'+t); if(el) el.classList.add('hidden');
+        });
+        $('#tab-'+id).classList.remove('hidden');
+        renderAll();
+      }
+    });
+
+    /*********************************
+     * Books CRUD
+     *********************************/
+    function availableCount(bookId){
+      const issued = db.loans.filter(l=>l.bookId===bookId && !l.returnedAt).length;
+      const book = db.books.find(b=>b.id===bookId);
+      return Math.max(0,(book?.copies||0)-issued);
+    }
+
+    function renderBookTable(){
+      const q = $('#bookFilter').value?.toLowerCase()||'';
+      const sortBy = $('#sortBooks').value;
+      let rows = db.books.filter(b=>
+        (b.title+" "+b.author+" "+(b.category||'')+" "+(b.isbn||'')).toLowerCase().includes(q)
+      );
+      rows.sort((a,b)=>{
+        if(sortBy==='available') return availableCount(b.id)-availableCount(a.id);
+        return (a[sortBy]||'').toString().localeCompare((b[sortBy]||'').toString());
+      });
+
+      let html = `<table><thead><tr>
+        <th>Title</th><th>Author</th><th>Category</th><th>ISBN</th><th>Copies</th><th>Available</th><th class="nowrap">Actions</th>
+      </tr></thead><tbody>`;
+      for(const b of rows){
+        html += `<tr>
+          <td>${b.title}</td>
+          <td>${b.author}</td>
+          <td>${b.category||'-'}</td>
+          <td>${b.isbn||'-'}</td>
+          <td>${b.copies}</td>
+          <td>${availableCount(b.id)}</td>
+          <td class="nowrap">`+
+            (isAdmin()?`<button class='btn soft' onclick='editBook(${b.id})'>Edit</button>
+                         <button class='btn danger' onclick='deleteBook(${b.id})'>Delete</button>`:'')+
+            ` <button class='btn success' onclick='borrow(${b.id})' ${availableCount(b.id)<=0?'disabled':''}>Borrow</button>`+
+          `</td>
+        </tr>`
+      }
+      html += `</tbody></table>`;
+      $('#bookTable').innerHTML = html;
+    }
+
+    function editBook(id){
+      const b = db.books.find(x=>x.id===id); if(!b) return;
+      $('#bookId').value=b.id; $('#title').value=b.title; $('#author').value=b.author;
+      $('#category').value=b.category||''; $('#isbn').value=b.isbn||''; $('#copies').value=b.copies;
+      toast('Editing "'+b.title+'"');
+    }
+    window.editBook = editBook;
+
+    function deleteBook(id){
+      if(!isAdmin()){toast('Admin only','error');return}
+      const hasLoans = db.loans.some(l=>l.bookId===id && !l.returnedAt);
+      if(hasLoans){ alert('Cannot delete: book currently issued.'); return }
+      db.books = db.books.filter(b=>b.id!==id); saveDB(db); renderAll(); toast('Book deleted');
+    }
+    window.deleteBook = deleteBook;
+
+    $('#bookForm').onsubmit=(e)=>{
+      e.preventDefault();
+      if(!isAdmin()){toast('Admin only','error');return}
+      const id = Number($('#bookId').value||0);
+      const book = { id: id||uid(db.books), title:$('#title').value.trim(), author:$('#author').value.trim(), category:$('#category').value.trim(), isbn:$('#isbn').value.trim(), copies:Math.max(1, Number($('#copies').value)), created: now() };
+      if(!book.title||!book.author){ toast('Title & Author required','error'); return }
+      if(id){
+        const idx=db.books.findIndex(b=>b.id===id); db.books[idx]={...db.books[idx],...book}; toast('Book updated');
+      } else {
+        db.books.push(book); toast('Book added');
+      }
+      saveDB(db); e.target.reset(); $('#bookId').value=''; renderAll();
+    }
+    $('#resetBookForm').onclick=()=>{ $('#bookId').value=''; }
+
+    /*********************************
+     * Borrow / Return
+     *********************************/
+    function borrow(bookId){
+      if(!isLogged()){ openAuth(); return }
+      const av = availableCount(bookId); if(av<=0){ toast('No copies available','error'); return }
+      const loan={ id:uid(db.loans), bookId, userId:db.session.userId, issuedAt:now(), dueAt:daysFromNow(14), returnedAt:null };
+      db.loans.push(loan); saveDB(db); renderAll(); toast('Book issued');
+    }
+    window.borrow = borrow;
+
+    function returnLoan(id){
+      const l=db.loans.find(x=>x.id===id && !x.returnedAt); if(!l) return;
+      l.returnedAt=now(); saveDB(db); renderAll(); toast('Returned');
+    }
+    window.returnLoan = returnLoan;
+
+    function renderBorrowTable(){
+      const u=currentUser();
+      let rows = db.loans.slice().sort((a,b)=> new Date(b.issuedAt)-new Date(a.issuedAt));
+      if(!isAdmin() && u){ rows = rows.filter(r=>r.userId===u.id) }
+      const nowT = Date.now();
+      let html = `<table><thead><tr>
+        <th>Book</th><th>User</th><th>Issued</th><th>Due</th><th>Status</th><th>Action</th>
+      </tr></thead><tbody>`;
+      for(const l of rows){
+        const book = db.books.find(b=>b.id===l.bookId);
+        const user = db.users.find(u=>u.id===l.userId);
+        const overdue = !l.returnedAt && new Date(l.dueAt).getTime()<nowT;
+        const status = l.returnedAt?`Returned <span class='muted'>(${formatDate(l.returnedAt)})</span>`:(overdue?`<span class='danger-text'>Overdue</span>`:'Active');
+        html += `<tr>
+          <td>${book?book.title:'?'}</td>
+          <td>${user?user.name:'?'}</td>
+          <td>${formatDate(l.issuedAt)}</td>
+          <td>${formatDate(l.dueAt)}</td>
+          <td>${status}</td>
+          <td>`+(l.returnedAt?'-':`<button class='btn success' onclick='returnLoan(${l.id})'>Return</button>`)+`</td>
+        </tr>`
+      }
+      html += `</tbody></table>`;
+      $('#borrowTable').innerHTML = html;
+    }
+
+    /*********************************
+     * Users (Admin)
+     *********************************/
+    function renderUserTable(){
+      if(!isAdmin()){ $('#userTable').innerHTML='<div class="muted">Admin only</div>'; return }
+      let html = `<table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Created</th></tr></thead><tbody>`;
+      for(const u of db.users){
+        html += `<tr><td>${u.name}</td><td>${u.email}</td><td>${u.role}</td><td>${formatDate(u.created)}</td></tr>`
+      }
+      html += `</tbody></table>`;
+      $('#userTable').innerHTML = html;
+    }
+
+    /*********************************
+     * Dashboard + Search
+     *********************************/
+    function stats(){
+      $('#statBooks').textContent = db.books.length;
+      $('#statBorrowed').textContent = db.loans.filter(l=>!l.returnedAt).length;
+      const u=currentUser();
+      $('#statMyActive').textContent = u? db.loans.filter(l=>!l.returnedAt && l.userId===u.id).length : 0;
+    }
+
+    function doSearch(){
+      const q = $('#quickSearch').value.toLowerCase();
+      const results = db.books.filter(b=> (b.title+" "+b.author+" "+(b.category||'')+" "+(b.isbn||'')).toLowerCase().includes(q) );
+      let html = `<table><thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Avail</th><th></th></tr></thead><tbody>`;
+      for(const b of results){
+        html += `<tr><td>${b.title}</td><td>${b.author}</td><td>${b.category||'-'}</td><td>${availableCount(b.id)}</td>
+          <td class='nowrap'><button class='btn success' onclick='borrow(${b.id})' ${availableCount(b.id)<=0?'disabled':''}>Borrow</button></td></tr>`
+      }
+      if(results.length===0) html += `<tr><td colspan="5" class="center muted">No results</td></tr>`;
+      html += `</tbody></table>`;
+      $('#searchResults').innerHTML = html;
+    }
+    $('#quickSearch').oninput = doSearch;
+
+    /*********************************
+     * Export / Import / Reset
+     *********************************/
+    $('#btnExport').onclick=()=>{
+      const data = JSON.stringify(db, null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='library-data.json'; a.click(); URL.revokeObjectURL(url);
+      toast('Exported JSON downloaded');
+    }
+
+    $('#importFile').onchange=(e)=>{
+      const file=e.target.files[0]; if(!file) return;
+      const fr=new FileReader();
+      fr.onload=()=>{ try{ db=JSON.parse(fr.result); saveDB(db); renderAll(); toast('Data imported'); } catch(err){ alert('Invalid JSON'); } };
+      fr.readAsText(file);
+    }
+
+    $('#btnReset').onclick=()=>{
+      if(confirm('Reset to factory sample data?')){ localStorage.removeItem(DB_KEY); db=defaultData(); saveDB(db); renderAll(); toast('Reset done'); }
+    }
+
+    $('#btnWipe').onclick=()=>{
+      if(!isAdmin()){toast('Admin only','error');return}
+      if(confirm('This will CLEAR all data permanently. Continue?')){ db={users:[],books:[],loans:[],session:{userId:null}}; saveDB(db); renderAll(); toast('All data cleared'); }
+    }
+
+    $('#btnSeed').onclick=()=>{
+      if(!isAdmin()){toast('Admin only','error');return}
+      const d=defaultData(); db.users=d.users; db.books=d.books; saveDB(db); renderAll(); toast('Sample data loaded');
+    }
+
+    /*********************************
+     * Initial Render
+     *********************************/
+    function renderAll(){
+      refreshUserBox();
+      stats();
+      renderBookTable();
+      renderBorrowTable();
+      renderUserTable();
+      doSearch();
+      // Admin tab visibility hints
+      $('#bookForm').parentElement.parentElement.style.opacity = isAdmin()?1:.6;
+    }
+
+    renderAll();
+  </script>
+</body>
+</html>
